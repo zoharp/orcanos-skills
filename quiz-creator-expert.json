@@ -1,0 +1,320 @@
+{
+  "skill_id": "quiz-creator-expert",
+  "name": "Quiz Creator Expert",
+  "description": "Transform documents or text into interactive, self-grading HTML quizzes with customizable parameters including difficulty, question count, answer options, pass threshold, and retry limits.",
+  "layer": "action",
+  "category": "assessment",
+  "author": "Orcanos",
+  "version": "1.0.0",
+  "tags": ["quiz", "assessment", "training", "interactive", "document"],
+  "standard": ["iso_13485", "iso_27001", "iso_14971"],
+  "industry": ["medical-device", "pharma", "healthcare", "regulated"],
+  "role": ["QA Engineer", "RA Specialist", "Trainer", "Auditor", "Admin"],
+
+  "depends_on": [
+    "foundation/terminology",
+    "foundation/document-management",
+    "conversation/document-analysis"
+  ],
+
+  "requires_signoff": false,
+
+  "inputs": {
+    "document_text": {
+      "type": "string",
+      "required": true,
+      "description": "Plain text or extracted document content to base quiz on (max 10000 chars)",
+      "min_length": 100,
+      "max_length": 10000
+    },
+    "document_title": {
+      "type": "string",
+      "required": true,
+      "description": "Title/name of the source document for quiz context",
+      "max_length": 200
+    },
+    "num_questions": {
+      "type": "integer",
+      "required": true,
+      "enum": [5, 10],
+      "description": "Total number of quiz questions to generate"
+    },
+    "complexity": {
+      "type": "string",
+      "required": true,
+      "enum": ["Easy", "Medium", "Hard"],
+      "description": "Difficulty level: Easy (recall), Medium (application), Hard (synthesis/analysis)"
+    },
+    "answers_per_question": {
+      "type": "integer",
+      "required": true,
+      "enum": [3, 5],
+      "description": "Number of answer options per question (including correct answer)"
+    },
+    "pass_percentage": {
+      "type": "integer",
+      "required": true,
+      "min": 0,
+      "max": 100,
+      "default": 70,
+      "description": "Score threshold (%) needed to pass the quiz"
+    },
+    "max_attempts": {
+      "type": "integer",
+      "required": true,
+      "enum": [1, 3, 5],
+      "description": "Number of times user can submit answers before quiz locks"
+    }
+  },
+
+  "outputs": {
+    "quiz_html": {
+      "type": "string",
+      "description": "Complete interactive HTML quiz with embedded CSS and JavaScript",
+      "stored_in": "conversation_files.file_content"
+    },
+    "quiz_metadata": {
+      "type": "object",
+      "description": "Quiz parameters and metadata for frontend rendering",
+      "fields": {
+        "quiz_id": "UUID, unique identifier",
+        "title": "Quiz title (from document)",
+        "num_questions": "integer",
+        "complexity": "Easy | Medium | Hard",
+        "answers_per_question": "integer",
+        "pass_percentage": "integer",
+        "max_attempts": "integer"
+      }
+    }
+  },
+
+  "system_prompt": {
+    "role": "system",
+    "content": "You are an expert educational assessment designer with deep experience creating effective, engaging quizzes for compliance training and knowledge validation.\n\nYour role:\n- Analyze source material deeply to identify key concepts, learning objectives, and critical details\n- Design questions that test understanding at the appropriate cognitive level (Easy=recall, Medium=application, Hard=synthesis)\n- Create plausible, challenging distractors that reflect common misconceptions\n- Ensure quiz fairness: no trick questions, clear language, one unambiguously correct answer per question\n- Vary answer positions (correct answer should not always be in the same position)\n- Use precise, professional terminology appropriate to the domain\n\nWhen asked to create a quiz:\n1. Request or confirm the quiz parameters if not provided:\n   - Number of questions (5 or 10)\n   - Difficulty level (Easy, Medium, or Hard)\n   - Number of answer choices (3 or 5)\n   - Pass score threshold (0-100%)\n   - Maximum attempts allowed (1, 3, or 5)\n\n2. Generate exactly the requested number of questions covering:\n   - Main topics and concepts from the document\n   - Real-world application (not just terminology)\n   - Risk areas or critical compliance points (if applicable)\n   - Variation in question types (not all yes/no or all multiple-choice)\n\n3. For each question:\n   - Write clear, unambiguous question text (1-2 sentences)\n   - Provide exactly N answer options (as specified)\n   - Mark the single correct answer unambiguously\n   - Ensure distractors are plausible but clearly wrong\n   - Vary the correct answer position (not always A, B, C, etc.)\n\n4. Output ONLY valid JSON (no markdown backticks, no preamble):\n   {\n     \"quiz_id\": \"<UUID>\",\n     \"title\": \"<document_title> — Quiz\",\n     \"num_questions\": <num>,\n     \"complexity\": \"<Easy|Medium|Hard>\",\n     \"answers_per_question\": <num>,\n     \"pass_percentage\": <num>,\n     \"max_attempts\": <num>,\n     \"questions\": [\n       {\n         \"id\": 0,\n         \"question\": \"Question text?\",\n         \"answers\": [\"Option A\", \"Option B\", \"Option C\"],\n         \"correct_answer\": \"Option A\"\n       }\n     ]\n   }\n\n5. Validation rules:\n   - Total questions must equal num_questions parameter\n   - Each question must have exactly answers_per_question options\n   - Each correct_answer must exist in the answers array\n   - No question can have duplicate answers\n   - No two questions should have the same correct answer position (randomize)\n   - Question language must be clear and jargon-appropriate for the domain\n\nIf the source material is too short or insufficient to create quality questions at the specified difficulty level, state this clearly and request additional material or suggest adjusting the difficulty level."
+  },
+
+  "parameter_selector_ui": {
+    "num_questions": {
+      "label": "Number of Questions",
+      "type": "button-group",
+      "options": [5, 10],
+      "icon": "📊"
+    },
+    "complexity": {
+      "label": "Difficulty Level",
+      "type": "button-group",
+      "options": ["Easy", "Medium", "Hard"],
+      "descriptions": {
+        "Easy": "Test basic recall and understanding",
+        "Medium": "Require application of knowledge",
+        "Hard": "Require analysis and synthesis"
+      },
+      "icon": "🎯"
+    },
+    "answers_per_question": {
+      "label": "Answers Per Question",
+      "type": "button-group",
+      "options": [3, 5],
+      "icon": "🔢"
+    },
+    "pass_percentage": {
+      "label": "Pass Criteria (%)",
+      "type": "number-input",
+      "min": 0,
+      "max": 100,
+      "default": 70,
+      "step": 5,
+      "suffix": "%",
+      "icon": "✅"
+    },
+    "max_attempts": {
+      "label": "Maximum Attempts",
+      "type": "button-group",
+      "options": [1, 3, 5],
+      "icon": "🔄"
+    }
+  },
+
+  "backend_endpoint": {
+    "method": "POST",
+    "path": "/skills/quiz-creator/generate",
+    "description": "Generate interactive quiz HTML from document and parameters",
+    "auth_required": true,
+    "request_body": {
+      "document_text": "string (plain text or extracted content)",
+      "document_title": "string",
+      "num_questions": "integer (5 or 10)",
+      "complexity": "string (Easy|Medium|Hard)",
+      "answers_per_question": "integer (3 or 5)",
+      "pass_percentage": "integer (0-100)",
+      "max_attempts": "integer (1, 3, or 5)",
+      "conversation_id": "bigint (optional, for storing file association)"
+    },
+    "response_success": {
+      "status": 200,
+      "body": {
+        "quiz_id": "UUID",
+        "quiz_html": "complete HTML string",
+        "title": "quiz title",
+        "num_questions": "integer",
+        "complexity": "string",
+        "answers_per_question": "integer",
+        "pass_percentage": "integer",
+        "max_attempts": "integer",
+        "file_id": "bigint (conversation_files.id)"
+      }
+    },
+    "response_error": {
+      "400": "Invalid parameters (e.g., num_questions not 5 or 10)",
+      "401": "Unauthorized",
+      "422": "Invalid JSON from Claude API (malformed quiz structure)",
+      "500": "Claude API error or HTML generation error"
+    }
+  },
+
+  "html_quiz_features": {
+    "styling": {
+      "colors": {
+        "primary": "#5C35A8",
+        "accent": "#F5A623",
+        "background": "linear-gradient(135deg, #5C35A8 0%, #F5A623 100%)",
+        "card": "#FFFFFF",
+        "text": "#333333",
+        "muted": "#888888"
+      },
+      "font": "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI'",
+      "spacing": "20px padding, 16px gaps",
+      "border_radius": "12px"
+    },
+    "components": {
+      "header": {
+        "title": "Quiz title from document",
+        "attempt_counter": "Attempt X of N",
+        "layout": "flex with space-between"
+      },
+      "question_section": {
+        "question_text": "Clear, single-sentence or two-sentence question",
+        "answer_options": "Radio button + label per option, hover state",
+        "spacing": "8px between options, 32px between questions"
+      },
+      "buttons": {
+        "submit": "Primary button (purple-orange gradient, full width)",
+        "retry": "Secondary button (appears if attempts remain and quiz failed)",
+        "done": "Success button (green, appears after pass or final attempt)"
+      },
+      "result_section": {
+        "pass_icon": "✅",
+        "fail_icon": "❌",
+        "score_display": "Score: XX%",
+        "feedback": "Contextual message based on performance"
+      }
+    },
+    "interactivity": {
+      "answer_selection": "Radio button per question, required before submit",
+      "grading": "Client-side JavaScript (instant feedback)",
+      "scoring": "Correct answers / Total questions * 100",
+      "pass_logic": "score >= pass_percentage",
+      "retry_logic": "If !passed AND attempts_remaining > 0, show Retry",
+      "completion": "If passed OR attempts_remaining == 0, show Done",
+      "disable_on_completion": "All inputs disabled after result shown"
+    },
+    "responsive": {
+      "desktop": "max-width 700px, padding 40px",
+      "mobile": "max-width 100%, padding 20px, buttons stack vertically"
+    }
+  },
+
+  "database_schema": {
+    "new_table": "conversation_files",
+    "columns": [
+      { "name": "id", "type": "bigserial primary key" },
+      { "name": "conversation_id", "type": "bigint references conversations(id) on delete cascade" },
+      { "name": "file_type", "type": "text", "values": ["quiz", "report", "export"], "description": "Type of file" },
+      { "name": "file_name", "type": "text", "description": "Original filename for download (e.g., 'quiz-550e8400.html')" },
+      { "name": "file_content", "type": "text", "description": "Raw HTML or JSON content" },
+      { "name": "mime_type", "type": "text", "default": "text/html" },
+      { "name": "file_size", "type": "integer", "description": "Size in bytes" },
+      { "name": "created_at", "type": "timestamptz default now()" }
+    ],
+    "indexes": [
+      "on conversation_files(conversation_id)",
+      "on conversation_files(file_type)"
+    ],
+    "update_conversation_messages": {
+      "add_column": "attached_file_id bigint references conversation_files(id)",
+      "purpose": "Link quiz file to the message that generated it"
+    }
+  },
+
+  "frontend_integration": {
+    "components_needed": [
+      "QuizParameterSelector.jsx - Inline parameter form in chat",
+      "QuizViewer.jsx - Renders quiz HTML in iframe + download button"
+    ],
+    "in_app_jsx": [
+      "Detect skill selection: 'quiz-creator-expert'",
+      "Show QuizParameterSelector when skill is active",
+      "On form submit, POST to /skills/quiz-creator/generate",
+      "Render QuizViewer with returned HTML",
+      "Add download icon (⬇️) next to quiz message"
+    ],
+    "download_handler": {
+      "trigger": "Click ⬇️ icon or 'Download' button",
+      "action": "Create blob from htmlContent, trigger download",
+      "filename": "quiz-{quiz_id}.html"
+    }
+  },
+
+  "validation_rules": {
+    "inputs": [
+      "document_text length: 100-10000 characters",
+      "num_questions: 5 or 10 only",
+      "complexity: 'Easy', 'Medium', or 'Hard' (case-sensitive)",
+      "answers_per_question: 3 or 5 only",
+      "pass_percentage: 0-100 integer",
+      "max_attempts: 1, 3, or 5 only"
+    ],
+    "generated_quiz_json": [
+      "questions array length equals num_questions",
+      "each question has exactly answers_per_question options",
+      "correct_answer must be one of the answers array items",
+      "no duplicate answers within a single question",
+      "correct_answer positions randomized across questions (not all 'A')",
+      "question.id must be 0-indexed and sequential"
+    ],
+    "html_output": [
+      "Valid HTML5 document",
+      "All CSS scoped to quiz-container",
+      "JavaScript grading logic correct (score calculation, pass/fail determination)",
+      "Attempt counter updates correctly",
+      "No console errors (browser dev tools)"
+    ]
+  },
+
+  "error_handling": {
+    "document_text_too_short": "Request longer document or suggest reducing num_questions",
+    "claude_api_invalid_json": "Log raw response, return 422 with 'Quiz generation produced invalid JSON'",
+    "claude_api_timeout": "Return 500 with 'Quiz generation timed out. Please try again.'",
+    "html_generation_error": "Return 500 with specific template rendering error",
+    "db_save_failed": "Return 500 and log database error",
+    "invalid_parameters": "Return 400 with field-level error messages"
+  },
+
+  "notes": {
+    "design_philosophy": "Skill definition should contain all necessary information for implementation without guessing. HTML template and system prompt are detailed enough that a developer needs only this file + the API docs.",
+    "future_enhancements": [
+      "Skill versioning: allow multiple versions with different prompt styles",
+      "Question bank pooling: generate 20 questions, randomly select N for each quiz",
+      "Performance analytics: track avg score, pass rate, time-per-question",
+      "Marketplace import: allow customers to import variations of this skill",
+      "Skill customization: per-account system_prompt overrides (e.g., regulatory focus)",
+      "Quiz review mode: after completion, show answers with explanations"
+    ],
+    "compliance_notes": "Quiz file stored in conversation_files is audit-logged automatically. Each quiz inherits the conversation's repository and user context for access control.",
+    "testing": [
+      "Unit: Claude API prompt generates valid JSON for all parameter combinations",
+      "Integration: Parameter selector → generate endpoint → HTML in iframe → download",
+      "Edge cases: 3-answer quiz, 5-answer quiz, Hard complexity, 1 attempt, 100% pass threshold"
+    ]
+  }
+}
